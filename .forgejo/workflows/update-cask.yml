@@ -1,20 +1,26 @@
 name: Update Cask
 
 # Forgejo-native cask bump (Model B: this Forgejo repo is the PRIMARY tap;
-# GitHub is a read-only push-mirror for brew's IPv4 access). Triggered by the
-# rustycan release pipeline via the workflow_dispatch API once a final release's
-# .dmg is live on kodezine.com. Writes the bump directly to this repo's main.
+# GitHub is a read-only push-mirror for brew's IPv4 access). Triggered by a
+# product's release pipeline via the workflow_dispatch API once a final
+# release's macOS artifact is live on kodezine.com. Writes the bump directly to
+# this repo's main. One workflow serves every cask in the tap; the caller names
+# its cask (`rustycan`, `rustybbd`, …).
 on:
   workflow_dispatch:
     inputs:
+      cask:
+        description: Cask token to bump (file Casks/<cask>.rb)
+        required: false
+        default: rustycan
       version:
         description: New version, without leading v (e.g. 0.3.1)
         required: true
       sha256:
-        description: SHA-256 of the macOS .dmg
+        description: SHA-256 of the macOS artifact
         required: true
       url:
-        description: Public (IPv4) download URL of the .dmg
+        description: Public (IPv4) download URL of the macOS artifact
         required: true
 
 jobs:
@@ -33,17 +39,26 @@ jobs:
 
       - name: Bump cask + push to main
         working-directory: repo
+        env:
+          CASK: ${{ inputs.cask }}
         run: |
+          # Guard: only plain tokens, and the cask file must already exist
+          # (new casks are added by PR, not by this bump job).
+          case "$CASK" in
+            ''|*[!a-z0-9-]*) echo "invalid cask token: '$CASK'"; exit 1;;
+          esac
+          FILE="Casks/${CASK}.rb"
+          [ -f "$FILE" ] || { echo "no such cask: $FILE"; exit 1; }
           sed -i \
             -e "s|version \".*\"|version \"${{ inputs.version }}\"|" \
             -e "s|sha256 \".*\"|sha256 \"${{ inputs.sha256 }}\"|" \
             -e "s|url \".*\"|url \"${{ inputs.url }}\"|" \
-            Casks/rustycan.rb
-          if git diff --quiet -- Casks/rustycan.rb; then
-            echo "Cask already at v${{ inputs.version }}; nothing to do."
+            "$FILE"
+          if git diff --quiet -- "$FILE"; then
+            echo "$CASK already at v${{ inputs.version }}; nothing to do."
             exit 0
           fi
           git config user.email "ci@kodezine.com"
-          git config user.name "rustycan CI"
-          git commit -am "chore: bump rustycan to v${{ inputs.version }}"
+          git config user.name "kodezine tap CI"
+          git commit -am "chore: bump ${CASK} to v${{ inputs.version }}"
           git push origin HEAD:main
