@@ -1,6 +1,6 @@
 cask "rustybbd" do
   version "0.2.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "48078205b5e682d2841658c2093478898f172bee616c514ca4e8e8b16028d9d6"
 
   url "https://kodezine.com/downloads/rustybbd/v0.2.0/rustybbd-v0.2.0-aarch64-apple-darwin.tar.gz"
   name "rustybbd"
